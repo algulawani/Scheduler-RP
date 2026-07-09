@@ -1,0 +1,190 @@
+state = {
+    RUNQUEUE
+    "n_runnable_threads":               int,    
+    "highest_deadline_urgency_ms":      float,                                                  
+    "max_waiting_priority":             int,                                              
+    "avg_wait_time_ms":                 float,  
+
+    CURRENT THREAD
+    "current_thread_priority":          int,    
+    "current_thread_type":              int,    
+    "current_thread_elapsed_ms":        float,  
+    "current_thread_budget_ms":         float,  
+    "current_thread_budget_util":       float,  
+    "current_thread_cycles_mean":       int,    
+    "current_thread_cycles_std":        int,    
+    "current_thread_wallclock_mean_ms": float,  
+    "current_thread_wallclock_std_ms":  float,  
+    "current_thread_n_observations":    int,    
+    "current_thread_llc_miss_rate":     float,  
+
+    CPU
+    "cpu_freq_mhz":                     float,  
+    "cpu_utilization_pct":              float, 
+    "cpu_temp_c":                       float,  
+
+    MEMORY
+    "system_avg_llc_miss_rate":         float,  
+
+    ENERGY
+    "battery_soc":                      float,  
+    "current_power_draw_w":             float,  
+    "avg_power_last_1s_w":              float,  
+
+    BLOCKED / PENDING QUEUE
+    "n_blocked_threads":                int,    
+    "min_eta_to_unblock_ms":            float,  
+    "max_downstream_priority":          int,    
+
+    CRITICAL PATH — EXPLICIT THREAD DETAIL (first 3 threads)
+    Thread 1 — most imminent, highest actionability:
+    "critical_path_thread_1_priority":              int,
+    "critical_path_thread_1_type":                  int,    
+    "critical_path_thread_1_cycles_mean":           int,    
+    "critical_path_thread_1_cycles_std":            int,
+    "critical_path_thread_1_wallclock_mean_ms":     float,  
+    "critical_path_thread_1_wallclock_std_ms":      float,
+    "critical_path_thread_1_elapsed_ms":            float,  
+    "critical_path_thread_1_budget_ms":             float,  
+    "critical_path_thread_1_budget_util":           float,  
+    "critical_path_thread_1_n_observations":        int,    
+
+    Thread 2:
+    "critical_path_thread_2_priority":              int,
+    "critical_path_thread_2_type":                  int,
+    "critical_path_thread_2_cycles_mean":           int,
+    "critical_path_thread_2_cycles_std":            int,
+    "critical_path_thread_2_wallclock_mean_ms":     float,
+    "critical_path_thread_2_wallclock_std_ms":      float,
+    "critical_path_thread_2_elapsed_ms":            float,
+    "critical_path_thread_2_budget_ms":             float,
+    "critical_path_thread_2_budget_util":           float,
+    "critical_path_thread_2_n_observations":        int,
+
+    Thread 3:
+    "critical_path_thread_3_priority":              int,
+    "critical_path_thread_3_type":                  int,
+    "critical_path_thread_3_cycles_mean":           int,
+    "critical_path_thread_3_cycles_std":            int,
+    "critical_path_thread_3_wallclock_mean_ms":     float,
+    "critical_path_thread_3_wallclock_std_ms":      float,
+    "critical_path_thread_3_elapsed_ms":            float,
+    "critical_path_thread_3_budget_ms":             float,
+    "critical_path_thread_3_budget_util":           float,
+    "critical_path_thread_3_n_observations":        int,
+
+    CRITICAL PATH — SCALAR TAIL SUMMARY (threads 4 and beyond)
+    "critical_path_remaining_depth":            int,    
+    "critical_path_tail_remaining_cycles":      int,   
+    "downstream_min_deadline_ms":               float,  
+
+    GRAPH-LEVEL STATISTICS
+    "max_dependency_chain_depth":       int,    
+    "n_threads_in_critical_path":       int,    
+    "critical_path_remaining_ms":       float,  
+    "n_threads_blocked_by_current":     int,    
+    "downstream_max_priority":          int,    
+}
+
+RUNQUEUE:
+n_runnable_threads, int: Total number of threads currently ready to run and waiting for a CPU core. Gives the scheduler a sense of overall queue pressure — high values indicate contention, low values indicate slack.
+
+highest_deadline_urgency_ms, float: Time remaining until the nearest deadline miss among all threads currently in the runqueue. The primary urgency signal — small values demand aggressive scheduling regardless of other parameters.
+
+max_waiting_priority, int: The priority level (0–99) of the highest-priority thread currently waiting in the runqueue. Tells the scheduler whether something important is being starved by the currently running thread.
+
+avg_wait_time_ms, float: Average time threads have been sitting in the runqueue without being scheduled. A proxy for overall scheduler fairness and throughput — rising values indicate threads are being neglected.
+
+CURRENT THREAD:
+current_thread_priority, int: Priority level (0–99) of the thread currently executing on the CPU. Higher values indicate greater criticality. Used in conjunction with waiting priorities to assess whether the right thread is running.
+
+current_thread_type, int: Classification of the current thread's workload character. 0 = I/O-bound (spends most time waiting on external devices), 1 = compute-bound (actively uses CPU cycles), 2 = mixed. Determines which execution time estimate is valid and whether raising CPU frequency will help.
+
+current_thread_elapsed_ms, float: Wall-clock time since the current thread started its present execution slice. Used alongside budget_ms to compute utilization and anticipate preemption.
+
+current_thread_budget_ms, float: Hard execution time ceiling for this thread in wall-clock time. If elapsed exceeds this, the thread must be preempted regardless of completion state. Prevents runaway threads from cascading into downstream deadline misses.
+
+current_thread_budget_util, float: Ratio of elapsed time to budget (elapsed / budget). Values approaching 1.0 signal imminent forced preemption. Values above 1.0 indicate the thread has already overrun its budget and action is urgent.
+
+current_thread_cycles_mean, int: Historical mean CPU cycles consumed per invocation of this thread, normalized across frequencies. Valid for compute-bound and mixed threads. Frequency-independent ground truth for estimating execution time at any P-state.
+
+current_thread_cycles_std, int: Standard deviation of observed CPU cycles across past invocations. Encodes execution time uncertainty — high values indicate variable workload behavior, low values indicate consistent predictable execution.
+
+current_thread_wallclock_mean_ms, float: Historical mean wall-clock execution time per invocation. Valid for I/O-bound threads where the bottleneck is an external device and CPU frequency does not affect completion time.
+
+current_thread_wallclock_std_ms, float: Standard deviation of observed wall-clock execution times for I/O-bound behavior. High values indicate variable I/O response times from external devices.
+
+current_thread_n_observations, int: Number of times this thread has been observed completing an invocation. Directly encodes estimate reliability — low values mean the scheduler should treat execution time estimates with skepticism and behave conservatively. High values mean estimates have converged and can be trusted.
+
+current_thread_llc_miss_rate, float: Ratio of Last Level Cache misses to total memory accesses for this thread, smoothed over recent execution slices. High values indicate the thread is memory-bound — fetching frequently from RAM rather than cache — making high CPU frequency wasteful.
+
+CPU:
+cpu_freq_mhz, float: Current CPU clock frequency in MHz, corresponding to the active P-state. The primary lever the scheduler controls for energy optimization. Used to convert cycle counts to expected wall-clock durations.
+
+cpu_utilization_pct, float: Overall CPU utilization across all cores as a percentage (0–100). Gives system-wide load context — high utilization means threads are competing heavily for CPU time.
+
+cpu_temp_c, float: Current CPU temperature in degrees Celsius. The scheduler monitors this to proactively reduce CPU frequency before the hardware thermal throttling mechanism activates — avoiding uncontrolled frequency drops that break execution time assumptions and waste energy.
+
+MEMORY:
+system_avg_llc_miss_rate, float: System-wide average LLC miss rate across all running threads. Provides context for interpreting per-thread LLC miss rates — a per-thread value of 0.4 is anomalous when the system average is 0.1, but unremarkable when the system average is 0.5.
+
+ENERGY:
+battery_soc, float: Battery state of charge as a fraction from 0.0 to 1.0. The primary energy context signal — the scheduler should apply more aggressive energy-saving behavior at low SoC and can afford to prioritize performance at high SoC.
+ 
+current_power_draw_w, float: Instantaneous system power consumption in watts. Noisy on a per-sample basis but useful for detecting sudden load spikes from newly activated hardware or computationally intensive threads.
+ 
+avg_power_last_1s_w, float: Power consumption averaged over the last one second. A smoothed, more reliable signal of the current energy consumption trend than the instantaneous reading. Primary input for reward calculation and energy optimization decisions.
+
+BLOCKED/PENDING QUEUE:
+n_blocked_threads, int: Number of threads that currently exist but cannot run because they are waiting on a dependency — another thread must complete first. High values indicate a complex dependency structure with significant future work queued up.
+ 
+min_eta_to_unblock_ms, float: Estimated time until the next blocked thread becomes runnable — i.e., how soon the nearest dependency will be satisfied. Small values mean new runnable threads are imminent and the scheduler should plan for an upcoming queue change.
+ 
+max_downstream_priority, int: Highest priority level among all threads that are currently blocked waiting on dependency chains. Signals the stakes of the pending work — if this is high, completing upstream threads quickly carries significant downstream value.
+
+CRITICAL PATH:
+The following ten parameters repeat identically for threads 1, 2, and 3 on the critical path, ordered from most imminent (thread 1) to least imminent (thread 3). Descriptions are given once and apply to all three.
+
+critical_path_thread_N_priority, int: Scheduling priority (0–99) of the Nth thread on the critical path. Encodes the criticality of this step in the dependency chain — a high priority thread deep in the chain indicates high stakes for the entire pipeline.
+ 
+critical_path_thread_N_type, int: Workload classification of the Nth critical path thread. 0 = I/O-bound, 1 = compute-bound, 2 = mixed. Determines which execution time estimate — cycles or wallclock — is valid for this thread, and whether allocating higher CPU frequency will reduce its completion time.
+ 
+critical_path_thread_N_cycles_mean, int: Historical mean CPU cycles per invocation for the Nth critical path thread, frequency-normalized. Valid when type is compute-bound or mixed. Used to estimate remaining execution time at any P-state.
+ 
+critical_path_thread_N_cycles_std, int: Standard deviation of CPU cycles for the Nth critical path thread. Higher values indicate the scheduler should apply more conservative time estimates for this step in the chain.
+ 
+critical_path_thread_N_wallclock_mean_ms, float: Historical mean wall-clock execution time for the Nth critical path thread. Valid when type is I/O-bound or mixed. Frequency-independent — raising CPU clock will not reduce this thread's completion time.
+ 
+critical_path_thread_N_wallclock_std_ms, float: Standard deviation of wall-clock execution time for the Nth critical path thread. High values indicate variable I/O response behavior at this step.
+ 
+critical_path_thread_N_elapsed_ms, float: Wall-clock time already spent by the Nth critical path thread in its current invocation. Combined with mean estimates, gives the scheduler an indication of how much work remains.
+ 
+critical_path_thread_N_budget_ms, float: Hard execution time ceiling for the Nth critical path thread in wall-clock time. Forces preemption if exceeded, preventing a slow thread from indefinitely blocking everything downstream.
+ 
+critical_path_thread_N_budget_util, float: Ratio of elapsed time to budget for the Nth critical path thread. Values approaching 1.0 signal imminent forced preemption at this step of the chain. Values above 1.0 indicate active overrun.
+ 
+critical_path_thread_N_n_observations, int: Number of completed past invocations of the Nth critical path thread. Encodes how reliable the execution time estimates for this step are. Low values mean the scheduler should treat this step's time estimates conservatively.
+
+CRITICAL PATH TAIl SUMMARY:
+critical_path_remaining_depth, int: Number of threads remaining on the critical path beyond the third explicitly represented thread. Tells the scheduler how much more sequential work exists in the pipeline after the detailed window ends.
+ 
+critical_path_tail_remaining_cycles, int: Total estimated CPU cycles remaining across all threads beyond thread 3 on the critical path. Provides a compressed representation of the total remaining compute burden in the tail of the chain.
+ 
+downstream_min_deadline_ms, float: The tightest deadline of any thread at the end of the critical path chain. The operationally critical number — tells the scheduler the total time budget available for the entire remaining pipeline to complete.
+
+GRAPH LEVEL STATISTICS:
+**max_dependency_chain_depth, int:** The length of the longest active dependency chain in the current graph. Depth of 1 means threads are independent and the scheduler has maximum flexibility. Higher values indicate complex sequential pipelines requiring careful management.
+ 
+n_threads_in_critical_path, int: Number of threads currently on the critical path — i.e., with zero scheduling slack. More threads on the critical path means more scheduling decisions directly affect deadline outcomes.
+ 
+critical_path_remaining_ms, float: Total estimated wall-clock time for the entire critical path to complete at the current CPU frequency. If this value exceeds the time remaining until the downstream deadline, a miss is already inevitable at the current P-state.
+ 
+n_threads_blocked_by_current, int: Number of threads directly waiting on the currently running thread to complete before they can proceed. High values mean the current thread has high downstream leverage — completing it quickly unblocks significant future work simultaneously.
+ 
+downstream_max_priority, int: Highest priority level of any thread downstream of the currently running thread in the dependency graph, including transitive dependents. A low-priority current thread with high downstream_max_priority should be treated with more urgency than its own priority suggests.
+
+The action that the scheduler will perform will be twofold: 
+	1. Select next thread
+	2. Select P-state for the next thread
+
+If there is no runnable thread, then the scheduler will select the CPU to idle and run at minimum frequency.
