@@ -1,0 +1,119 @@
+###########################################################################################################
+#THIS FILE DETAILS HOW EACH FEATURE IN THE STATE VECTOR WILL BE MEASURED AND HOW THE VECTOR WILL BE BUILT.#
+###########################################################################################################
+
+CPU features:
+1. cpu_freq_mhz:
+	- There is a way to get the CPU frequency directly, using the perf_event_open() API. 
+	- There is no register holding the actual CPU frequency, it has to be derived from other sources.
+	- The way perf_event_open() gets the frequency, is by calculating (ΔAPERF / ΔMPERF) × base_freq.
+	- APERF and MPERF are Model-Specific Registers.
+	- MPERF increments at a fixed rate tied to the CPU's clock.
+	- APERF increments at the core's actual running frequency.
+	- APERF and MPERF are x86 specific but similar registers exist in ARM chips.
+	- The best way is probably using perf_event_open() or using cpuinfo_cur_freq, this is architecture independent.
+	- IMP: the frequency can only be measured between two instances.
+
+2. cpu_utilization_pct:
+	- Will be calculated using: util = 1 - idle/total for each CPU.
+	- Will need a eBPF program.
+	
+3. cpu_temp_c:
+	- Temperature does not change meaningfully over very short durations.
+	- Sampling of temperature should be at a lower frequency.
+	- Done from sysfs poll.
+	
+Memory features:
+4. system_avg_llc_miss_rate:
+	- Easiest way: perf_event_open()
+	- Alternate: using eBPFs, we can get per thread miss rates, which we need for current_thread_llc_miss_rate.
+	- Check portability.
+
+Runqueue features:
+5. n_runnable_threads:
+
+6. highest_deadline_urgency_ms:
+
+7. max_waiting_priority:
+	- Find values through task_struct->prio
+	- Issue is maintaining a running max, look into when you start working on this.
+
+8. avg_wait_time_ms:
+	- Use BCC tool runqlat.py
+
+9. max_wait_time_ms:
+	- Below can also work for avg_wait_time_ms.
+	- Maintain a ring buffer of (PID, wait time), have a program in userspace that computes avg and max.
+Current thread features:
+10. current_thread_id:
+	- From sched_switch tracepoint, the next_pid field.
+
+11. current_thread_priority:
+	- From sched_switch tracepoint, the next_prio field.
+
+12. current_thread_type:
+	- Not observable from kernel.
+	- Can be inferred from time needed for the thread to execute.
+	- Kinda shitty way to do things, look into other methods, for now, let it be.
+
+13. current_thread_elapsed_ms:
+	- From sched_switch.
+
+14. current_thread_budget_ms:
+	- Not observable from kernel.
+	- If using SCHED_DEADLINE, the runtime field
+	- Else, it is user assigned, do not know how that will work exactly, for now, let it be.
+
+15. current_thread_cycles_mean: -(1)
+
+16. current_thread_cycles_std: -(1)
+
+17. current_thread_wallclock_mean_ms: -(1)
+
+18. current_thread_wallclock_std_ms: -(1)
+
+19. current_thread_n_observations: -(1)
+
+20. current_thread_llc_miss_rate:
+	- Same as system_avg_llc_miss_rate but scoped to a specific thread instead of a CPU
+
+-(1):
+These five are one problem, not five — they're all outputs of the same per-thread historical bookkeeping, so I'll walk through the mechanism once.
+Raw measurements needed per invocation:
+
+Cycles: per-thread perf_event_open() with PERF_TYPE_HARDWARE/PERF_COUNT_HW_CPU_CYCLES, opened scoped to a specific pid (not a CPU) — this gives you a counter that follows the thread across CPU migrations and accumulates only cycles that thread consumed, which is exactly what you want for a frequency-independent cycle count.
+Wallclock: literally just elapsed_ms at the moment the invocation completes.
+
+The actual hard part — detecting when an "invocation" ends. This is the piece I'd flag as the real design problem here, more than the statistics math. sched_switch tells you when a thread stops running, not when it finishes a unit of work — a thread can be preempted mid-callback and resume later; that's not an invocation boundary, that's just a pause. The kernel has no concept of "ROS2 callback finished," because that's an application-level event, not a scheduling event.
+
+Two ways to get a real boundary signal:
+
+uprobe on the callback dispatch point — attach a uprobe (not a tracepoint) to the function in rclcpp's executor where it invokes a callback (entry) and where it returns (exit). This gives you a precise, correct invocation boundary, at the cost of needing to identify the right function symbol in rclcpp's compiled binary/library and keeping that working across rclcpp versions.
+Heuristic via wakeup-to-block cycling — if a given thread's pattern is "block waiting for next timer/message, wake up, do work, block again," you can treat each wake-to-block cycle as one invocation. Works cleanly for simple periodic timer callbacks, breaks down for anything with internal waits (a callback that itself blocks partway through, e.g. on a service call) since that'd look like two invocations instead of one.
+
+I'd lean toward the uprobe approach if the callback dispatch symbol is stable and findable — it's the only one that's actually correct rather than approximately right, and given you're building the ground-truth data your entire cycles/wallclock estimation depends on, getting this boundary wrong quietly corrupts every downstream statistic without any obvious symptom.
+Once you have a real boundary, on each invocation completion: read the accumulated cycle count for that invocation, note the wallclock elapsed, and update mean/std incrementally using Welford's online algorithm — a standard single-pass method for computing running mean and variance without storing the full history of past invocations (just three running values per thread: n, mean, M2, from which mean/std are computed at read time). current_thread_n_observations is literally the n counter from this same bookkeeping — not a separate measurement, just the count of updates Welford's has received.
+One thing worth deciding explicitly, since you're building this alone and no one else will catch it: Welford's, as I've described it, weights all history equally forever — an invocation from an hour ago counts the same as one from a second ago. If workload behavior can drift over a session (e.g., thermal throttling changes effective timing, or a robot's task mix shifts), you might prefer an exponential moving average instead, which discounts older observations. I'm not picking one for you — it's a real tradeoff (EMA adapts to drift but is noisier / has less "memory" for genuinely rare events; plain Welford's is more stable but slower to react to real behavior change) — just flagging it's a decision point, not something to let default silently.
+Storage: this whole bundle (n, mean, M2 for both cycles and wallclock) needs to live in a persistent per-thread-identity table in userspace, maintained across the entire run — not reset per snapshot window like your other aggregate fields. Keyed by TID works as long as the ROS2 process/thread that owns a given periodic callback doesn't restart mid-run; if a node crashes and respawns, its TID changes and this history resets, which may or may not be acceptable — worth being aware of rather than assuming continuity you don't actually have. 
+[THIS WENT OVER MY HEAD, I WILL FIGURE THIS OUT WHEN I GET TO IMPLEMENTING IT, HOPEFULLY THIS DOESNT BITE ME IN THE ASS. THIS IS FROM CLAUDE BTW]
+
+21. battery_soc:
+	- This will depend on machine.
+	- For sim purposes, on the x86 machine, we can get it from the os itself.
+	- For the actual robot... that depends on the BMS on the bot... find it out from the team.
+
+22. current_power_draw_w:
+	- This also depends on the machine.
+	- Intel has RAPL
+	- Jetson has INA3221 power monitor.
+
+23. avg_power_last_1s_w:
+	- rolling average of current_power_draw_w
+	- we should probably drop this.
+
+24. All features relating to critical path:
+	- Most of the features here already have analogues discussed earlier.
+	- We need to create a dependency graph from ROS2 nodes.
+	- Then we will need to compute a live longest remaining path computation.
+	- All this will be done in user space
+	
