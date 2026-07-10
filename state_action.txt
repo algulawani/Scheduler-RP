@@ -3,7 +3,8 @@ state = {
     "n_runnable_threads":               int,
     "highest_deadline_urgency_ms":      float,                                                  
     "max_waiting_priority":             int,                                              
-    "avg_wait_time_ms":                 float,  
+    "avg_wait_time_ms":                 float, 
+    "max_wait_time_ms":                 float, 
 
     CURRENT THREAD
     "current_thread_priority":          int,    
