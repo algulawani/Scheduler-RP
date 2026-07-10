@@ -7,6 +7,7 @@ state = {
     "max_wait_time_ms":                 float, 
 
     CURRENT THREAD
+    "current_thread_id":				int,
     "current_thread_priority":          int,    
     "current_thread_type":              int,    
     "current_thread_elapsed_ms":        float,  
