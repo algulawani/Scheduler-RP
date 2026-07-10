@@ -1,6 +1,6 @@
 state = {
     RUNQUEUE
-    "n_runnable_threads":               int,    
+    "n_runnable_threads":               int,
     "highest_deadline_urgency_ms":      float,                                                  
     "max_waiting_priority":             int,                                              
     "avg_wait_time_ms":                 float,  
@@ -126,7 +126,7 @@ cpu_utilization_pct, float: Overall CPU utilization across all cores as a percen
 cpu_temp_c, float: Current CPU temperature in degrees Celsius. The scheduler monitors this to proactively reduce CPU frequency before the hardware thermal throttling mechanism activates — avoiding uncontrolled frequency drops that break execution time assumptions and waste energy.
 
 MEMORY:
-system_avg_llc_miss_rate, float: System-wide average LLC miss rate across all running threads. Provides context for interpreting per-thread LLC miss rates — a per-thread value of 0.4 is anomalous when the system average is 0.1, but unremarkable when the system average is 0.5.
+system_avg_llc_miss_rate, float: System-wide average LLC miss rate across all running threads. Provides context for interpreting per-thread LLC miss rates — a per-thread value of 0.4 is anomalous when the system average is 0.1, but unremarkable when the system average is 0.5. [LLC: Last level cache]
 
 ENERGY:
 battery_soc, float: Battery state of charge as a fraction from 0.0 to 1.0. The primary energy context signal — the scheduler should apply more aggressive energy-saving behavior at low SoC and can afford to prioritize performance at high SoC.
