@@ -1,0 +1,24 @@
+# eBPF build artifacts
+*.o
+*.so
+*.ko
+*.ll
+*.bc
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Build
+build/
+dist/
+.build/
+
+# OS
+.DS_Store
+.env
+
