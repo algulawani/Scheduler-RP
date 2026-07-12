@@ -40,14 +40,14 @@ TRACEPOINT_PROBE(sched, sched_switch)
 
 	current_time = bpf_ktime_get_ns();
 	time_delta = current_time - initial_time;
-	time_stamps.update(&TIME_STAMP_KEY_1, &current_time);
+	time_stamps.update(&TIME_STAMPS_KEY_1, &current_time);
 	prev_PID = args->prev_pid;
 	total_time_passed += time_delta;
 
 	if (prev_PID == 0)
 		idle_time_passed += time_delta;
 
-	time_stamps.update(&TIME_STAMP_KEY_0, &current_time);
+	time_stamps.update(&TIME_STAMPS_KEY_0, &current_time);
 	util_time.update(&UTIL_TIME_KEY_0, &idle_time_passed);
 	util_time.update(&UTIL_TIME_KEY_1, &total_time_passed);
 	prog_exec_cntr = 0;
