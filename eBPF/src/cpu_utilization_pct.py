@@ -10,6 +10,8 @@ from bcc import BPF
 from time import sleep
 
 C_code = r"""
+BPF_ARRAY(prog_exec_cntr, u64, 1);
+BPF_ARRAY(time_acc, __u64, 2);
 BPF_ARRAY(time_stamps, __u64, 2);
 BPF_ARRAY(util_time, __u64, 2);
 
@@ -17,8 +19,11 @@ TRACEPOINT_PROBE(sched, sched_switch)
 {
 	pid_t prev_PID;
 	u32 CPU;
+	u32 PROG_EXEC_CNTR_KEY_0 = 0;
 	u32 TIME_STAMPS_KEY_0 = 0;
 	u32 TIME_STAMPS_KEY_1 = 1;
+	u32 TIME_ACC_KEY_0 = 0; //IDLE
+	u32 TIME_ACC_KEY_1 = 1; //TOTAL
 	u32 UTIL_TIME_KEY_0 = 0; //IDLE
 	u32 UTIL_TIME_KEY_1 = 1; //TOTAL
 	u64 prog_exec_cntr = 0;
