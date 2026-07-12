@@ -1,10 +1,10 @@
+#!/usr/bin/env python3
+
 # IMPORTANT:
 # This file is temporary!!! 
 # This uses BCC implementation and is only useful in for initial testing and debugging of the observation layer.
 # If for any reason this file exists along side a properly working .bpf.c file, then delete this.
 #	- Anay
-
-#!/usr/bin/env python3
 
 from bcc import BPF
 from time import sleep
@@ -64,8 +64,3 @@ while True:
 	total_time_passed = bpf["util_time"][1].value
 	cpu_utilization_pct = (1 - idle_time_passed / total_time_passed) * 100
 	print(f"{cpu_utilization_pct} %")
-		
-	
-
-
-
