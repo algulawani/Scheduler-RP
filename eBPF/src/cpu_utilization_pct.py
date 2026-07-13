@@ -30,7 +30,8 @@ TRACEPOINT_PROBE(sched, sched_switch)
 	__u64 time_delta;
 	__u64 idle_time_passed;
 	__u64 total_time_passed;
-	__u64 *util_time_ptr;	
+	__u64 *util_time_ptr;
+	__u64 *time_stamps_init_ptr;
 
 	CPU = bpf_get_smp_processor_id();
 	if (CPU != 0)
@@ -48,6 +49,11 @@ TRACEPOINT_PROBE(sched, sched_switch)
 		time_stamps.update(&TIME_STAMPS_KEY_0, &initial_time);
 	}
 
+	if (time_stamps_init_ptr == 0)
+		return 0;
+
+	time_stamps_init_ptr = time_stamps.lookup(&TIME_STAMPS_KEY_0);
+	initial_time = *time_stamps_init_ptr;
 	current_time = bpf_ktime_get_ns();
 	time_delta = current_time - initial_time;
 	time_stamps.update(&TIME_STAMPS_KEY_1, &current_time);
