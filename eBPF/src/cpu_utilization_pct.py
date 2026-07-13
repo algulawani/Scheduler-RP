@@ -14,6 +14,18 @@ BPF_ARRAY(prog_exec_cntr, u64, 1);
 BPF_ARRAY(time_stamps, __u64, 2);
 BPF_ARRAY(util_time, __u64, 2);
 
+struct tracepoint__sched__sched_switch
+{
+	u64 __do_not_use__;
+	char prev_comm[16];
+	pid_t prev_pid;
+	int prev_prio;
+	long prev_state;
+	char next_comm[16];
+	pid_t next_pid;
+	int next_prio;
+};
+
 TRACEPOINT_PROBE(sched, sched_switch)
 {
 	pid_t prev_PID;
