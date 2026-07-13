@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 
-# IMPORTANT:
-# This file is temporary!!! 
-# This uses BCC implementation and is only useful in for initial testing and debugging of the observation layer.
-# If for any reason this file exists along side a properly working .bpf.c file, then delete this.
-#	- Anay
+"""
+IMPORTANT:
+   1. This program is a very rudimentary eBPF, only meant to set up the collection infrastructure at extremely
+      stages. THIS WILL NOT GO ON THE FINAL OBSERVABILITY LAYER.
+   2. This program has several issues, listed below:
+   3. PROBLEM 1: idle_time and total_time have no way of resetting, so the value stored in them is not idle t-
+      me spent in this session, it stores the amount of idle time that that CPU has spent since FOREVER.
+   4. PROBLEM 2: this program only tracks utilization on a single CPU, The machine on which this will be depl-
+      oyed will have multiple cores.
+   5. This program uses BCC to send this code to the kernel. This means it will take an unacceptably long time
+      to start logging values, eventually, it should use libbpf.
+   6. This program outputs utilization to the terminal, eventually, it should print the output to a file.
+   7. This program also needs a proper shutdown sequence, will be defined later.
+   8. This has been my first, actual eBPF.
+"""
 
 from bcc import BPF
 from time import sleep
@@ -87,7 +97,7 @@ TRACEPOINT_PROBE(sched, sched_switch)
 }
 """
 
-bpf = BPF(text=C_code, debug=4)
+bpf = BPF(text=C_code)
 
 while True:
 	sleep(2)
