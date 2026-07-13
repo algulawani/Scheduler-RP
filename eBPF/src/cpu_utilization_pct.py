@@ -23,6 +23,7 @@ TRACEPOINT_PROBE(sched, sched_switch)
 	u32 TIME_STAMPS_KEY_1 = 1; //CURRENT
 	u32 UTIL_TIME_KEY_0 = 0; //IDLE
 	u32 UTIL_TIME_KEY_1 = 1; //TOTAL
+	u64 prog_exec_cntr_val;
 	u64 *prog_exec_cntr_ptr;
 	__u64 initial_time;
 	__u64 current_time;
