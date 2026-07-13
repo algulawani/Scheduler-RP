@@ -50,7 +50,7 @@ TRACEPOINT_PROBE(sched, sched_switch)
 	}
 
 	time_stamps_init_ptr = time_stamps.lookup(&TIME_STAMPS_KEY_0);
-	if (time_stamp_init_ptr == 0)
+	if (time_stamps_init_ptr == 0)
 		return 0;
 
 	initial_time = *time_stamps_init_ptr;
