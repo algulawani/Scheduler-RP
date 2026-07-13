@@ -49,10 +49,10 @@ TRACEPOINT_PROBE(sched, sched_switch)
 		time_stamps.update(&TIME_STAMPS_KEY_0, &initial_time);
 	}
 
-	if (time_stamps_init_ptr == 0)
+	time_stamps_init_ptr = time_stamps.lookup(&TIME_STAMPS_KEY_0);
+	if (time_stamp_init_ptr == 0)
 		return 0;
 
-	time_stamps_init_ptr = time_stamps.lookup(&TIME_STAMPS_KEY_0);
 	initial_time = *time_stamps_init_ptr;
 	current_time = bpf_ktime_get_ns();
 	time_delta = current_time - initial_time;
@@ -93,5 +93,8 @@ while True:
 	sleep(2)
 	idle_time_passed = bpf["util_time"][0].value
 	total_time_passed = bpf["util_time"][1].value
-	cpu_utilization_pct = (1 - idle_time_passed / total_time_passed) * 100
-	print(f"{cpu_utilization_pct} %")
+	if total_time_passed != 0:
+		cpu_utilization_pct = (1 - idle_time_passed / total_time_passed) * 100
+		print(f"{cpu_utilization_pct} %")
+	elif total_time_passed <=  0:
+		print("error, negative or zero value for total_time_passed") 
