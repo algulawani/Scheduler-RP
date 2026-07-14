@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-from bcc import BPF
-from time import sleep
-
 """
 IMPORTANT:
    1. This program is a very rudimentary eBPF, only meant to set up the collection infrastructure at extremely
@@ -16,6 +13,9 @@ IMPORTANT:
    5. This program outputs utilization to the terminal, eventually, it should print the output to a file.
    6. This program also needs a proper shutdown sequence, will be defined later.
 """
+
+from bcc import BPF
+from time import sleep
 
 C_code = r"""
 BPF_ARRAY(current_thread_id, pid_t, 1);
